@@ -65,7 +65,7 @@ and forbidden (on PATH, beside this repository, or `CITLALPOL_FORBIDDEN`) with n
 (`CITLALPOL_ZOOZVE` or on PATH for `test/run.sh`). `test/run.sh` checks the two together without reaching
 the network (it also uses python3 and curl, both in `nix develop`).
 
-**Status (2026-11-25):** citld in Elixir: SOCKS5 and HTTP proxy requests (plain HTTP and CONNECT), programs that ignore the proxy
+**Version 0.1.0** (2026-11-25), a development release. **Status:** citld in Elixir: SOCKS5 and HTTP proxy requests (plain HTTP and CONNECT), programs that ignore the proxy
 (the catch-all and the wall's DNS), pass / `to` / refuse, labels, the records. Planned: records of UDP / ICMP — see docs/scope.md.
 
 ## Where things live

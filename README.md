@@ -4,6 +4,8 @@
 wall, every attempt recorded — made a Mix project, so that it runs without Nix. What Citlalpol is and does: `README.citlalpol.md`,
 `docs/scope.md` and `docs/design.md` (Citlalpol's own, brought here by `sync/`).
 
+**Version 0.1.0**: Citlalpol 0.1.0 (2026-11-25, a development release); this repository takes upstream's version.
+
 ## Use
 
 ```sh
