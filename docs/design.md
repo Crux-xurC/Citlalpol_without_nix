@@ -172,10 +172,10 @@ a label, so attempts cannot be put under another name; the labels survive a rest
 
 ## The loop with Xipe Totec (loosening the wall one step at a time)
 
-The main use, not yet wired on Xipe Totec's side:
+The main use. The REPL goes inside the wall through Xipe Totec's `eval.wrap`; the labels per row are not wired yet:
 
 ```
- 1. Xipe Totec evaluates the target's functions (under Citlalpol; everything outside refused)
+ 1. Xipe Totec evaluates the target's functions (its REPL started by `citl run` through eval.wrap; everything undeclared refused)
  2. citld records which evaluation tried to go where, how, and where it stopped
  3. a person approves a change to access.json from the records (one step looser):
        pass / pass with `to` (a local server) / stay refused
@@ -186,9 +186,10 @@ The main use, not yet wired on Xipe Totec's side:
   run at the same time, so under Citlalpol it must either evaluate one row at a time or keep the label per pass (open).
 - **Only a person loosens.** Like Xipe Totec's effect approval (an agent proposes; only what a person approves is evaluated), nothing
   makes `access.json` looser automatically — that is what keeps it a wall.
-- **What Xipe Totec would need** (kept here until decided; Xipe Totec's own promise of "no sandbox" stays): a per-project setting to
-  start the REPL with `citl run <name> -- <REPL>`; the label before each row; for a failed row, the reason from the records (`:nxdomain`
-  or a TLS alert alone cannot tell "refused" from "really down"); a column of attempts per row in tezcatl's matrix
+- **On Xipe Totec's side** (its promise of "not a sandbox" stays): a project's `eval.wrap` puts a command in front of the REPL's, so
+  `xipe config 'eval.wrap=["citl","run","<name>","--"]'` starts the REPL inside the wall (Xipe Totec's D-eval-wrap, 2026-11-25; generic —
+  Xipe Totec knows nothing of Citlalpol). Not yet: the label before each row; for a failed row, the reason from the records
+  (`:nxdomain` or a TLS alert alone cannot tell "refused" from "really down"); a column of attempts per row in tezcatl's matrix
   (`citl log --json --label <row id>`).
 - **Effects.** Under Citlalpol a function that writes to the network might look safe to evaluate, but **writes to files are not
   stopped**. The way is not to loosen Xipe Totec's `writes`, but to add a network axis to its effect classes (does not go out / goes only
