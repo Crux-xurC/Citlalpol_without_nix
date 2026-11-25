@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# citl -- Citlalpol (docs/scope.md). This repository's own (it replaces upstream's bin/citl,
+# sync/replaced.txt): the commands run from the release when bin/release has built it
+# (Erlang's runtime included: no Elixir needed), else as upstream does, `elixir main.exs`.
+# Only `run` is finished here, so that the command gets the terminal itself:
+# citl run [<name>] [forbidden options] -- <command> [args...]
+set -euo pipefail
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+rel="$here/_build/prod/rel/citlalpol/bin/citlalpol"
+export CITLALPOL_DIR="$here"
+# +B: Ctrl-C ends citld in the foreground at once (no BREAK menu); a stale door is cleared at the next start
+export ELIXIR_ERL_OPTIONS="${ELIXIR_ERL_OPTIONS:-} +B"
+citl_() {
+  if [ -x "$rel" ]; then "$rel" eval "Citlalpol.Main.main()" "$@"; else elixir "$here/main.exs" "$@"; fi
+}
+
+if [ "${1:-}" != run ]; then
+  if [ -x "$rel" ]; then exec "$rel" eval "Citlalpol.Main.main()" "$@"; else exec elixir "$here/main.exs" "$@"; fi
+fi
+shift
+args=("$@") opts=() cmd=() seen=""
+for a in "${args[@]}"; do
+  if [ -z "$seen" ] && [ "$a" = "--" ]; then seen=1; continue; fi
+  if [ -n "$seen" ]; then cmd+=("$a"); else opts+=("$a"); fi
+done
+[ -n "$seen" ] && [ ${#cmd[@]} -gt 0 ] || { echo "usage: citl run [<name>] [forbidden options] -- <command> [args...]" >&2; exit 2; }
+name=""
+if [ ${#opts[@]} -gt 0 ] && [[ "${opts[0]}" != -* ]]; then name="${opts[0]}"; opts=("${opts[@]:1}"); fi
+prep="$(citl_ run-prepare "$name")" || exit $?
+run_id="${prep%%$'\t'*}" forbidden="${prep#*$'\t'}"
+FORBIDDEN_RUN="$run_id" exec "$forbidden" run --door citlalpol "${opts[@]}" -- "${cmd[@]}"

@@ -1,0 +1,3 @@
+# Upstream files this repository replaces with its own work (sync/sync.sh does not take them;
+# upstream's version of each is kept in sync/upstream/ and its changes are printed at a sync).
+bin/citl      # runs the release when it is built (bin/release), else `elixir main.exs` as upstream does

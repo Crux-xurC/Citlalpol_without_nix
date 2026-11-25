@@ -1,0 +1,8 @@
+{
+  "name": "demo",
+  "destinations": [
+    { "host": "pong.citlalpol.test", "port": 80, "do": "pass", "to": "127.0.0.1:55480" },
+    { "host": "example.com", "do": "pass" },
+    { "host": "*.tracker.example", "do": "refuse", "why": "never while trying code" }
+  ]
+}

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# bin/release -- build the release (Erlang's runtime included) that bin/citl runs. This
+# repository's own. Needs Elixir and Erlang/OTP once, to build; then citl runs without them.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+export MIX_ENV=prod
+mix release --overwrite
+echo "bin/release: built _build/prod/rel/citlalpol -- bin/citl runs it"

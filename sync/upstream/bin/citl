@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# citl -- Citlalpol, the fake outside behind forbidden's door (docs/scope.md). The commands are
+# Elixir's (main.exs); only `run` is finished here, so that the command gets the terminal itself:
+# citl run [<name>] [forbidden options] -- <command> [args...]
+set -euo pipefail
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# +B: Ctrl-C ends citld in the foreground at once (no BREAK menu); a stale door is cleared at the next start
+cit() { exec elixir --erl "+B" "$here/main.exs" "$@"; }
+
+[ "${1:-}" = run ] || cit "$@"
+shift
+args=("$@") opts=() cmd=() seen=""
+for a in "${args[@]}"; do
+  if [ -z "$seen" ] && [ "$a" = "--" ]; then seen=1; continue; fi
+  if [ -n "$seen" ]; then cmd+=("$a"); else opts+=("$a"); fi
+done
+[ -n "$seen" ] && [ ${#cmd[@]} -gt 0 ] || { echo "usage: citl run [<name>] [forbidden options] -- <command> [args...]" >&2; exit 2; }
+name=""
+if [ ${#opts[@]} -gt 0 ] && [[ "${opts[0]}" != -* ]]; then name="${opts[0]}"; opts=("${opts[@]:1}"); fi
+prep="$(elixir "$here/main.exs" run-prepare "$name")" || exit $?
+run_id="${prep%%$'\t'*}" forbidden="${prep#*$'\t'}"
+FORBIDDEN_RUN="$run_id" exec "$forbidden" run --door citlalpol "${opts[@]}" -- "${cmd[@]}"

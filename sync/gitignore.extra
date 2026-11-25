@@ -1,0 +1,3 @@
+# this repository's own (sync/gitignore.extra)
+/_build/
+/deps/

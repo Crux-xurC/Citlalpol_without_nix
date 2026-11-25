@@ -1,0 +1,15 @@
+# Build output
+/_build/
+/deps/
+*.ez
+/citl
+
+# Records and local settings never belong here
+/records/
+
+# Local agent settings
+/.claude/
+
+# this repository's own (sync/gitignore.extra)
+/_build/
+/deps/

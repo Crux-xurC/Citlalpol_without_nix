@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# bin/test -- Citlalpol's acceptance (test/run.sh, upstream's) with this repository's bin/citl:
+# the release when built, else `elixir main.exs`. Needs forbidden and zoozve (on PATH, or
+# CITLALPOL_FORBIDDEN / CITLALPOL_ZOOZVE), unprivileged user namespaces, nftables, python3 and curl.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+exec ./test/run.sh "$@"
