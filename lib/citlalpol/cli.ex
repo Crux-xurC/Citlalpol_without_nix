@@ -2,7 +2,7 @@ defmodule Citlalpol.CLI do
   @moduledoc """
   citl's commands but `run` (bin/citl hands the terminal to forbidden itself, after `run-prepare`).
   """
-  alias Citlalpol.{Access, Citld, Json, Paths, Records}
+  alias Citlalpol.{Access, Citld, Json, Paths, Records, Swallow}
 
   @usage """
       citl start | stop | status          citld in the background (citl serve: in the foreground)
@@ -15,6 +15,13 @@ defmodule Citlalpol.CLI do
                                           forbidden run --door citlalpol, with <name>'s access.json
       citl label <run> <label> | --clear  name what a run is doing now (e.g. the row being evaluated); outside the wall only
       citl log [--run <id>] [--label <l>] [--since 10m] [--decision refuse|pass] [--json]
+      citl swallow [--run <id>] [--label <l>] [--since 10m]
+                                          the refused attempts, one row a destination, as a small table (default:
+                                          the last run); temporary, read it again with cat (printed where)
+      citl digest <id | name:id | host[:port]> pass | to <host>:<port> | refuse [--why "…"] [--name <access>]
+                                          write that destination into the project's access.json (first); citl read
+                                          applies it
+      citl residual <name>                keep the last small table (<name>:<id> in digest); replaced without asking
 
   Scope (what is promised, what is not): docs/scope.md
   """
@@ -44,6 +51,9 @@ defmodule Citlalpol.CLI do
   defp run(["use" | rest]), do: use_access(rest)
   defp run(["run-prepare" | rest]), do: run_prepare(rest)
   defp run(["log" | rest]), do: log(rest)
+  defp run(["swallow" | rest]), do: Swallow.swallow(rest)
+  defp run(["digest" | rest]), do: Swallow.digest(rest)
+  defp run(["residual" | rest]), do: Swallow.residual(rest)
   defp run([h]) when h in ["help", "-h", "--help"], do: IO.write(@usage)
   defp run([]), do: IO.write(@usage)
   defp run([c | _]), do: die("unknown command #{c} (citl help)")

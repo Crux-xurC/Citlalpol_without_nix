@@ -18,5 +18,6 @@ lib/citlalpol/net.ex
 lib/citlalpol/paths.ex
 lib/citlalpol/records.ex
 lib/citlalpol/redact.ex
+lib/citlalpol/swallow.ex
 main.exs
 test/run.sh

@@ -14,7 +14,9 @@ defmodule Citlalpol.Door do
   alias Citlalpol.{Access, Dns, Fake, Net, Paths, Records, Redact}
 
   @sig <<"\r\n\r\n", 0, "\r\nQUIT\n">>
-  @tlv %{0xE0 => "run", 0xE1 => "pid", 0xE2 => "cmd", 0xE3 => "mode", 0xE4 => "via"}
+  # the process in the header: `cmd` is what it says of itself (its argv can be rewritten), `exe` the file the
+  # kernel runs; `run` and `mode` are set outside the wall (docs/scope.md, what the records can be trusted for)
+  @tlv %{0xE0 => "run", 0xE1 => "pid", 0xE2 => "cmd", 0xE3 => "mode", 0xE4 => "via", 0xE5 => "exe"}
   @head_max 65_536
   @read_timeout 30_000
   @pass_timeout 15_000
@@ -327,7 +329,7 @@ defmodule Citlalpol.Door do
 
   defp connect(c, kind, ips, port, timeout, fail, first, gate \\ nil) do
     with {:ok, up, ip} <- Net.connect_any(ips, port, timeout),
-         {:ok, early} <- if(gate, do: zoozve(up, port), else: {:ok, ""}) do
+         {:ok, early} <- if(gate, do: zoozve(up, ip, port), else: {:ok, ""}) do
       relay(c, kind, up, ip, port, first, early)
     else
       {:error, why} -> refuse(c, kind, "#{fail} (#{why})")
@@ -335,27 +337,29 @@ defmodule Citlalpol.Door do
     end
   end
 
-  # zoozve/1: a challenge at the head of the connection, answered with the machine's key (never sent);
+  # zoozve/2: a challenge at the head of the connection, answered with the machine's key (never sent)
+  # over the nonce and the address and port connected to -- a server elsewhere that passes the challenge
+  # on to a real gate (another port, another loopback address) gets it wrong;
   # -> {:ok, bytes that came after the answer} | {:gate, why}
-  defp zoozve(up, port) do
+  defp zoozve(up, ip, port) do
     with {:ok, key} <- zoozve_key() do
       nonce = :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
-      want = :crypto.mac(:hmac, :sha256, key, "zoozve/1 #{nonce} #{port}") |> Base.encode16(case: :lower)
-      :gen_tcp.send(up, "ZOOZVE/1 #{nonce}\r\n")
+      want = :crypto.mac(:hmac, :sha256, key, "zoozve/2 #{nonce} #{Net.addr(ip, port)}") |> Base.encode16(case: :lower)
+      :gen_tcp.send(up, "ZOOZVE/2 #{nonce}\r\n")
 
       case gate_line(up, "", System.monotonic_time(:millisecond) + @gate_timeout) do
-        {:ok, "ZOOZVE/1 OK " <> got, rest} ->
+        {:ok, "ZOOZVE/2 OK " <> got, rest} ->
           if byte_size(got) == 64 and :crypto.hash_equals(got, want) do
             put(%{"to_auth" => "zoozve"})
             {:ok, rest}
           else
             :gen_tcp.close(up)
-            {:gate, "a wrong answer to the challenge: another key"}
+            {:gate, "a wrong answer to the challenge: another key, or passed on from another address or port"}
           end
 
         {:ok, _, _} ->
           :gen_tcp.close(up)
-          {:gate, "it does not speak zoozve/1"}
+          {:gate, "it does not speak zoozve/2"}
 
         {:error, why} ->
           :gen_tcp.close(up)

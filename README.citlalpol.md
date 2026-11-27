@@ -43,6 +43,9 @@ citl run myapp -- mix test                   # forbidden run --door citlalpol, w
 citl log --since 10m                         # what was tried (--run <id>, --decision refuse, --json)
 citl use myapp                               # what applies to `forbidden on --door citlalpol` in a terminal
 citl label <run> row-12                      # from outside the wall: what the run is doing now (citl log --label row-12)
+citl swallow                                 # what the last run was refused, one row a destination (cat it again)
+citl digest 3 to 127.0.0.1:55432             # row 3 into the project's access.json (pass | to | refuse); citl read applies it
+citl residual before-upgrade                 # keep that table (digest before-upgrade:3 …)
 ```
 
 ```json
@@ -66,7 +69,7 @@ and forbidden (on PATH, beside this repository, or `CITLALPOL_FORBIDDEN`) with n
 the network (it also uses python3 and curl, both in `nix develop`).
 
 **Version 0.1.0** (2026-11-25), a development release. **Status:** citld in Elixir: SOCKS5 and HTTP proxy requests (plain HTTP and CONNECT), programs that ignore the proxy
-(the catch-all and the wall's DNS), pass / `to` / refuse, labels, the records. Planned: records of UDP / ICMP — see docs/scope.md.
+(the catch-all and the wall's DNS), pass / `to` / refuse, labels, the records, `swallow` / `digest` / `residual`. Planned: records of UDP / ICMP — see docs/scope.md.
 
 ## Where things live
 

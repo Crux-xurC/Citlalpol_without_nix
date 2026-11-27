@@ -48,3 +48,4 @@ Table: citlalpol_#eigenvalue
 | t-36 | DONE  | B   | tezcatl の citlalpol_image（Zoozve の軌道、to_auth は Zoozve へ、DNS は戻る）：to でローカルへ送ったものを外へ出たと描かない（sent_to がローカルなら別の行き先） | #eigenvalue |
 | t-37 | DONE  | A   | 指摘への対処：access.json の写しで判断・壁の中で設定と記録を隠す・allow_local を廃止 | #eigenvalue |
 | t-38 | DONE  | A   | zoozve：to の門番（HMAC のチャレンジ・レスポンス、後ろの任意のサーバーへ中継）と citld の側の認証 | #eigenvalue |
+| t-39 | DONE  | B   | citl swallow / digest / residual：拒否された試みの一時的な小さい表（cat で読む）、プロジェクトの access.json への書き込み（効かせるのは citl read）、表を残す（2026-11-27 設計、design.md） | #eigenvalue |

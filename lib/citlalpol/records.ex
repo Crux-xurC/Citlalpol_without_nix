@@ -7,7 +7,7 @@ defmodule Citlalpol.Records do
   use GenServer
   alias Citlalpol.Paths
 
-  @order ~w(at run label pid cmd mode door via proto host address port method path access rule decision sent_to to_auth answer bytes_up bytes_down ms why)
+  @order ~w(at run label pid cmd exe mode door via proto host address port method path access rule decision sent_to to_auth answer bytes_up bytes_down ms why)
 
   def start_link(_), do: GenServer.start_link(__MODULE__, nil, name: __MODULE__)
 

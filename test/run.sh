@@ -56,19 +56,40 @@ nobody="$(free_port)"
 mk empty <<'J'
 { "destinations": [] }
 J
+# a server at another loopback address, at the gate's own port, that passes everything on to the real gate
+python3 - "$gate_port" >/dev/null 2>&1 <<'PY' &
+import socket, sys, threading
+p = int(sys.argv[1])
+s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("127.0.0.2", p)); s.listen()
+def pump(a, b):
+    try:
+        while (d := a.recv(65536)): b.sendall(d)
+    except OSError: pass
+    finally:
+        try: b.shutdown(socket.SHUT_WR)
+        except OSError: pass
+def one(c):
+    u = socket.create_connection(("127.0.0.1", p)); threading.Thread(target=pump, args=(u, c), daemon=True).start(); pump(c, u)
+while True:
+    c, _ = s.accept(); threading.Thread(target=one, args=(c,), daemon=True).start()
+PY
+gate_pids="$gate_pids $!"
+sleep 0.3
 mk decided <<J
 { "destinations": [
   { "host": "pong.citlalpol.test", "port": 80, "do": "pass", "to": "127.0.0.1:$gate_port" },
   { "host": "tls.citlalpol.test", "port": 443, "do": "pass", "to": "localhost:$gate_port" },
   { "host": "bare.citlalpol.test", "do": "pass", "to": "127.0.0.1:$pong_port" },
   { "host": "other.citlalpol.test", "do": "pass", "to": "127.0.0.1:$other_port" },
-  { "host": "down.citlalpol.test", "do": "pass", "to": "127.0.0.1:$nobody" } ] }
+  { "host": "down.citlalpol.test", "do": "pass", "to": "127.0.0.1:$nobody" },
+  { "host": "passon.citlalpol.test", "do": "pass", "to": "127.0.0.2:$gate_port" } ] }
 J
 
 echo "2. a small Citlalpol through the door"
 out="$("$C" run decided -- curl -sS -m5 http://pong.citlalpol.test/ping 2>/dev/null)"
 r="$(last)"
 check "curl in the wall reaches the local server named by to (pong)" '[ "$out" = pong ]'
+check "the record has the executable too, from the door's header (what the kernel runs)" '[[ "$r" == *"\"exe\": \"/"*curl\"* ]]'
 check "the record has the run, the process (curl), the door's header and the decision" \
   '[[ "$r" == *"\"run\": \"c-"* && "$r" == *"\"cmd\": \"curl "* && "$r" == *"\"door\": \"proxy_v2\""* && "$r" == *"\"decision\": \"pass\""* ]]'
 check "the record says where it was sent (sent_to) and that a zoozve gate answered" '[[ "$r" == *"\"host\": \"pong.citlalpol.test\""* && "$r" == *"\"sent_to\": \"127.0.0.1:$gate_port\""* && "$r" == *"\"to_auth\": \"zoozve\""* ]]'
@@ -76,6 +97,8 @@ out="$("$C" run decided -- curl -sS -m5 -w ' %{http_code}' http://bare.citlalpol
 check "a to at a local server that is not behind a gate: refused (the challenge is not answered)" '[[ "$out" == *"not a zoozve gate"*" 403" ]]'
 out="$("$C" run decided -- curl -sS -m5 -w ' %{http_code}' http://other.citlalpol.test/ping 2>/dev/null)"
 check "a gate with another key: refused" '[[ "$out" == *"another key"*" 403" ]]'
+out="$("$C" run decided -- curl -sS -m5 -w ' %{http_code}' http://passon.citlalpol.test/ping 2>/dev/null)"
+check "a server at another loopback address passing the challenge on to a real gate (same port): refused" '[[ "$out" == *"another key"*" 403" ]]'
 
 echo "3. the ping in four steps"
 check "a. outside the wall, the pong answers at its own address" '[ "$(curl -sS -m3 "http://127.0.0.1:$pong_port/ping")" = pong ]'
@@ -178,6 +201,44 @@ check "read again from outside: the change is in force" '[[ "$out" == *" 403" ]]
 check "inside the wall, citl's config (the copies) is hidden" '! "$C" run copy -- ls "$CITLALPOL_CONFIG/access" 2>/dev/null'
 check "inside the wall, the records are hidden" '! "$C" run copy -- ls "$CITLALPOL_STATE/records" 2>/dev/null'
 check "citl read is refused inside the wall" '! "$C" run copy -- "$C" read "$work/copy/access.json" copy 2>/dev/null'
+
+echo "from the records to access.json: swallow, digest, residual"
+mk sw <<'J'
+{ "destinations": [
+    { "host": "upload.sw.test", "do": "refuse", "why": "never" } ] }
+J
+"$C" run sw -- sh -c 'curl -sS -m5 http://pong.citlalpol.test/ping; curl -sS -m5 http://pong.citlalpol.test/ping; curl -sS -m5 --noproxy "*" http://dns-only.sw.test/' >/dev/null 2>&1
+t="$("$C" swallow 2>/dev/null)"
+row() { printf '%s\n' "$t" | awk -F'\t' -v h="$1" -v p="$2" '$2 == h && $3 == p'; }
+check "swallow: the last run's refused attempts, one row a destination (twice -> count 2)" \
+  '[[ "$(row pong.citlalpol.test 80 | cut -f6)" == 2 && "$(row pong.citlalpol.test 80 | cut -f7)" == sw ]]'
+check "...stopped at the DNS question: no port, stopped dns" '[[ "$(row dns-only.sw.test - | cut -f5)" == dns ]]'
+check "...written to the runtime as a table cat reads (header, tabs)" \
+  '[ "$(cat "$CITLALPOL_RUNTIME/swallow/last.tsv")" = "$t" ] && sed -n 2p "$CITLALPOL_RUNTIME/swallow/last.tsv" | grep -q "^id	host	port"'
+pid_="$(row pong.citlalpol.test 80 | cut -f1)"
+dns_="$(row dns-only.sw.test - | cut -f1)"
+check "swallow, digest and residual are refused inside the wall" \
+  '! "$C" run sw -- "$C" swallow 2>/dev/null && ! "$C" run sw -- "$C" digest "$pid_" pass 2>/dev/null && ! "$C" run sw -- "$C" residual x 2>/dev/null'
+check "digest says what to do (no word: refused)" '! "$C" digest "$pid_" 2>/dev/null'
+"$C" digest "$pid_" to "127.0.0.1:$gate_port" --why "the pong" >/dev/null
+check "digest writes the project's access.json, the new destination first" \
+  'python3 -c "import json,sys; d=json.load(open(sys.argv[1]))[\"destinations\"]; sys.exit(not (d[0]==dict(host=\"pong.citlalpol.test\",port=80,do=\"pass\",to=\"127.0.0.1:$gate_port\",why=\"the pong\") and d[1][\"host\"]==\"upload.sw.test\"))" "$work/sw/access.json"'
+out="$("$C" run sw -- curl -sS -m5 -w ' %{http_code}' http://pong.citlalpol.test/ping 2>/dev/null)"
+check "...but not the copy: still refused until citl read" '[[ "$out" == *" 403" ]]'
+"$C" residual swtest >/dev/null
+check "residual keeps the table in the state directory" '[ "$(cat "$CITLALPOL_STATE/swallow/swtest.tsv")" = "$t" ]'
+"$C" digest "swtest:$dns_" pass >/dev/null
+check "a second digest before citl read, from a kept table (<name>:<id>): a destination with no port" \
+  'python3 -c "import json,sys; d=json.load(open(sys.argv[1]))[\"destinations\"]; sys.exit(not (d[0]==dict(host=\"dns-only.sw.test\",do=\"pass\") and len(d)==3))" "$work/sw/access.json"'
+check "digest writes *. only with refuse" '! "$C" digest "*.wide.sw.test" pass --name sw 2>/dev/null && ! "$C" digest "*.wide.sw.test" to "127.0.0.1:$gate_port" --name sw 2>/dev/null'
+check "digest over a refusal written on purpose: refused" '! "$C" digest upload.sw.test pass --name sw 2>/dev/null'
+check "digest over a destination declared already: refused" '! "$C" digest "$pid_" pass 2>/dev/null'
+"$C" read "$work/sw/access.json" sw >/dev/null
+out="$("$C" run sw -- curl -sS -m5 http://pong.citlalpol.test/ping 2>/dev/null)"
+check "citl read: the digested destination is in force (pong)" '[ "$out" = pong ]'
+"$C" run sw -- sh -c "echo '{ \"destinations\": [] }' > '$work/sw/access.json'" 2>/dev/null
+check "the project's file changed by something else: digest refuses" '! "$C" digest other.sw.test pass --name sw 2>/dev/null'
+"$C" read "$work/sw/access.json" sw >/dev/null
 
 echo "runs, walls without a run, the door"
 check "citl log --run picks one run" '[ "$("$C" log --json | head -1 | python3 -c "import json,sys; print(json.loads(sys.stdin.read())[\"run\"])" | xargs -I{} "$C" log --json --run {} | wc -l)" -ge 1 ]'
